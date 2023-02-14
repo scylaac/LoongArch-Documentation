@@ -16,7 +16,7 @@
    viewBox="0 0 69.000005 41.999997"
    version="1.1"
    id="svg8"
-   inkscape:version="0.92.2 (5c3e80d, 2017-08-06)"
+   inkscape:version="0.92.4 (5da689c313, 2019-01-14)"
    sodipodi:docname="compiler-isa-config-model-CN.svg">
   <defs
      id="defs2">
@@ -295,9 +295,9 @@
      borderopacity="1.0"
      inkscape:pageopacity="0.0"
      inkscape:pageshadow="2"
-     inkscape:zoom="1"
-     inkscape:cx="431.06509"
-     inkscape:cy="209.36854"
+     inkscape:zoom="0.70710678"
+     inkscape:cx="270.23332"
+     inkscape:cy="209.10698"
      inkscape:document-units="mm"
      inkscape:current-layer="g7005"
      showgrid="false"
@@ -381,14 +381,14 @@
       <text
          id="text4669"
          y="127.78059"
-         x="91.355591"
+         x="93.62661"
          style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:2.11666656px;line-height:1.25;font-family:'Ubuntu Condensed';-inkscape-font-specification:'Ubuntu Condensed, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;letter-spacing:0px;word-spacing:0px;writing-mode:lr-tb;text-anchor:start;fill:#000000;fill-opacity:1;stroke:none;stroke-width:0.26458332"
          xml:space="preserve"><tspan
            style="font-style:normal;font-variant:normal;font-weight:normal;font-stretch:normal;font-size:2.11666656px;font-family:'Ubuntu Condensed';-inkscape-font-specification:'Ubuntu Condensed, Normal';font-variant-ligatures:normal;font-variant-caps:normal;font-variant-numeric:normal;font-feature-settings:normal;text-align:start;writing-mode:lr-tb;text-anchor:start;stroke-width:0.26458332"
            y="127.78059"
-           x="91.355591"
+           x="93.62661"
            id="tspan4667"
-           sodipodi:role="line">LA32 Lite</tspan></text>
+           sodipodi:role="line">LA32R</tspan></text>
       <text
          id="text4673"
          y="129.35475"

@@ -43,7 +43,7 @@ should be implemented：
 |Description
 
 |-march=
-|`native` `loongarch64` `la464`
+|`native` `loongarch64` `la464` `la364` `la264`
 |Selects the target architecture, i.e.
 the basic set of <<isa-modules,ISA modules>> to be enabled.
 
@@ -52,16 +52,19 @@ the basic set of <<isa-modules,ISA modules>> to be enabled.
 |Selects the base ABI type.
 
 |-mtune=
-|`native` `loongarch64` `la464`
+|`native` `loongarch64` `la464` `la364` `la264`
 |Selects the type of target microarchitecture, defaults to the value of `-march`.
 The set of possible values should be a superset of `-march` values.
 |===
 
 - Valid parameter values of `-march` and `-mtune` options should correspond to
-actual LoongArch processor implementations / families.
+actual LoongArch processor models, IP cores or product series.
 
 - In principle, different `-march` values should not imply the same set
-of ISA modules.
+of ISA modules. The distinctions between these values are meant to reflect
+the differences in hardware characteristics that have major impact on the
+hardware-binary compatibiliy. The compiler can adapt these features by
+adjusting the extended options.
 
 .Extended Options
 [%header,cols="^1m,^3,^6"]
@@ -90,19 +93,72 @@ and adjust the selected base ABI type to use 64-bit FP calling convention.
 
 |-mfpu=
 |`64` `32` `0` `none` (equivalent to `0`)
-|Selects the allowed set of basic floating-point instructions and registers.
+|(Optional) Selects the allowed set of basic floating-point instructions and registers.
 This option should not change the FP calling convention unless it's <<abi-fallback,necessary>>.
 (The implementation of this option is not mandatory. It is recommended to use
 `-m*-float` options in software projects and scripts.)
+
+|-mstrict-align
+|`-m[no-]strict-align`
+|Do not generate unaligned memory accesses.
+Useful for targets that do not support for hardware unaligned memory access.
+
+|-mlsx
+|`-m[no-]lsx`
+|(Optional) Allows generating LSX 128-bit SIMD instructions.
+
+|-mlasx
+|`-m[no-]lasx`
+|(Optional) Allows generating LASX 256-bit SIMD instructions.
 |===
 
-As a general rule, the effect of all LoongArch-specific compiler options
-that are given for one compiler invocation should be as if they are
-processed in the order they appear on the command line.
-The only exception to this rule is `-m*-float`: their configuration of
-floating-point instruction set and calling convention will not be changed
-by subsequent options other than `-m*-float`.
+For one compilation command, the effective order of all LoongArch-specific
+compiler options is computed with the following rules:
 
+1. Within each category in the above tables, only the last-seen option
+   is effective (`-m*-float` goes into the same category).
+2. Basic options always precedes the extended options.
+3. On the basis of rule 1 and 2, any options with parameters
+   (i.e. with `=`) precedes all options without parameters.
+4. If the above rule failed to determine the effective order between
+   two options, unless specified by the following table, they should
+   have independent meanings. (i.e. the effective order between them
+   does not affect the compiler's final configuration)
+
+.Special processing rules for certain compiler option combinations
+[%header,cols="^1m,^3,^3"]
+|===
+|Option combination
+|Compiler behavior
+|Description
+
+|-mfpu=none -ml[a]sx
+.5+|Abort and report error
+.5+|64-bit FPU must be implemented when the target
+has an SIMD extension implemented
+
+|-mfpu=0 -ml[a]sx
+|-mfpu=32 -ml[a]sx
+|-msoft-float -ml[a]sx
+|-msingle-float -m[a]sx
+
+|-mno-lsx -mlasx
+|Abort and report error
+|the LSX 128-bit SIMD extension must be implemented
+when the target has the LASX 256-bit SIMD extension
+|===
+
+The compiler should reach the final target configuration by applying
+the options in their effective order. Options that appears later in
+the order can override the existing ISA / ABI / uArch configuration.
+
+Different from the extended options that makes only incremental changes,
+the basic options can provide a complete set of target configurations.
+Thus, a nominal default value is required for each basic option
+in case they should be absent from the command line.
+
+The following sections will cover the details of
+the target ISA / ABI configuration items.
 
 === Configuring Target ISA
 
@@ -119,15 +175,15 @@ by the value of `-march`. An *ISA extension* may represent either the base of a 
 __extended__ ISA component or an incremental update to it, and is enabled / disabled by
 extended options.
 
-For a complier, the final ISA configuration should be derived by applying various
-ISA extension configurations from extended options to the base ISA,
-which is selected via the `-march` option and consists of the base
-architecture and the set of default ISA extensions.
+When determining the suitable compiler options with the target ISA, it is recommended
+for the user to first select the base architecture and a set of default ISA extensions
+with `-march`, and then add the extended options to adjust the enabled ISA extensions
+so that the target ISA configuration can be consistent with the actual hardware.
 
 image::compiler-isa-config-model-EN.svg[]
 
 Among all ISA modules listed below, the compiler should at least implement
-one base architecture.
+one base architecture and one combination of enabled ISA extensions.
 
 .Base Architecture
 [%header,cols="^1,^3,^2"]
@@ -143,20 +199,37 @@ __LoongArch Reference Manual - Volume 1: Basic Architecture__] v1.00.
 |===
 
 The following table lists all ISA extensions that should be abstracted by the compiler
-and the compiler options to enable / disable them.
+and the options for adapting these hardware features.
 
 .ISA extensions
 [%header,cols="^1,^3,^2"]
 |===
-|Name
+|ISA extension name
 |Related compiler options
-|Description
+|Description of the option(s)
 
 |Basic Floating-Point Processing Unit (`fpu*`)
 |`-mfpu=\*` (Possible values of `*`: `none` `32` `64`)
 |Selects the allowed set of basic floating-point instructions
 and floating-point registers. This is a constituent part of
 the base architecture, where it gets its default value.
+
+|Hardware support for unaligned memory access (`ual`)
+|`-m[no-]strict-align`
+|Do not or do generate unaligned memory accesses.
+Using `-mstrict-align` is not recommended for hardware with `ual` support.
+
+|Loongson SIMD eXtension (`lsx`)
+|`-m[no-]lsx`
+|Allow or do not allow generating LSX 128-bit SIMD instructions.
+Enabling `lsx` requires `fpu64` (the compiler should report an error when
+there's a conflict between the user-specified `-mfpu=` and `-mlsx` options).
+
+|Loongson Advanced SIMD eXtension (`lasx`)
+|`-m[no-]lasx`
+|Allow or do not allow generating LASX 256-bit SIMD instructions.
+Enabling `lasx` requires `lsx` (the compiler should report an error when
+the user specifies `-mno-lsx` and `-mlasx` together).
 |===
 
 The following table lists the properties of all target CPU models
@@ -167,7 +240,7 @@ at the same time.
 [%header,cols="^1,^3,^2"]
 |===
 |Name / Value
-|ISA modules that are enabled by default
+|Base architecture [ISA extensions]
 |Target of optimization
 
 |`native`
@@ -175,13 +248,25 @@ at the same time.
 |auto-detected microarchitecture model / features
 
 |`loongarch64`
-|`la64v100` [`fpu64`]
+|`la64v100` [`ual` `fpu64`]
 |generic LoongArch LA64 processors
 
 |`la464`
-|`la64v100` [`fpu64`]
+|`la64v100` [`ual` `fpu64` `lsx` `lasx`]
 |LA464 processor core
+
+|`la364`
+|`la64v100` [`ual` `fpu64` `lsx`]
+|LA364 processor core
+
+|`la264`
+|`la64v100` [`fpu64`]
+|LA264 processor core
 |===
+
+__Note: for `la464` and `la364` targets, the compiler may choose not to enable
+the SIMD extensions (`lsx` and `lasx`) if these are not implemented.
+This is for better `-march` compatibility across compilers.__
 
 [[abi-types]]
 === Configuring Target ABI
@@ -286,11 +371,11 @@ table, as long as they are not explicitly disabled or excluded from usage.
 
 |`lp64f`
 |`base`
-|`la64v100` `fpu32`
+|`la64v100` [`fpu32`]
 
 |`lp64s`
 |`base`
-|`la64v100` `fpunone`
+|`la64v100` [`fpunone`]
 |===
 
 == GNU Target Triplets and Multiarch Specifiers
@@ -483,14 +568,18 @@ Apart from the generic definitions described above, some architecture-specific m
 |Bit-width of floating-point registers (`0` if there is no FPU).
 
 |`__loongarch_arch`
-|`"loongarch64"` `"la464"`
+|`"loongarch64"` `"la464"` `"la364"` `"la264"`
 |Processor model as specified by `-march`.
 If `-march` is not present, the build-time default should be used.
+If `-march=native` is enabled (user-specified or the default value),
+the result is automatically detected by the compiler.
 
 |`__loongarch_tune`
-|`"loongarch64"` `"la464"`
+|`"loongarch64"` `"la464"` `"la364"` `"la264"`
 |Processor model as specified by `-mtune`.
-If `-mtune` is not present, the build-time default should be used.
+If `-mtune` is not present, the value should be the same as `__loongarch_arch`.
+If `-mtune=native` is enabled (user-specified or set with `-march=native`),
+the result is automatically detected by the compiler.
 
 |`__loongarch_lp64`
 |undefined or `1`
@@ -511,6 +600,19 @@ If `-mtune` is not present, the build-time default should be used.
 |`__loongarch_double_float`
 |undefined or `1`
 |Defined if floating-point/extended ABI type is `double`.
+
+|`__loongarch_sx`
+|undefined or `1`
+|Defined if the compiler enables the `lsx` ISA extension.
+
+|`__loongarch_asx`
+|undefined or `1`
+|Defined if the compiler enables the `lasx` ISA extension.
+
+|`__loongarch_simd_width`
+|undefined, `128` or `256`
+|The maximum SIMD bit-width enabled by the compiler.
+(`128` for `lsx`, and `256` for `lasx`)
 |===
 
 For historical reasons, the earliest LoongArch C/C++ compilers provided some MIPS-style built-in macros.
